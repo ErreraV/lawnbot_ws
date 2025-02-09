@@ -29,43 +29,31 @@
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
 
 #define LED_PIN 2
-// #define LAWNBOT
+// #define lawnbot
 #ifndef LAWNBOT
 // pin declaration
 
-// Front Left wheel
+// Left wheel
 int8_t L_FORW = 35;
 int8_t L_BACK = 34;
 int8_t L_encoderPin = 18;
 
-// Rear Left wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
-
-// Front Right wheel
+// right wheel
 int8_t R_FORW = 26;
 int8_t R_BACK = 25;
 int8_t R_encoderPin = 19;
-// Rear Right wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
 
-// parameters of the robot
+// parameters of the robotA
 float wheels_y_distance_ = 0.38;
 float wheel_radius = 0.10;
 float wheel_circumference_ = 2 * 3.14 * wheel_radius;
 
 // encoder value per revolution of left wheel and right wheel
-int tickPerRevolution_FLW = 128;
-int tickPerRevolution_RLW = 128;
-int tickPerRevolution_FRW = 128;
-int tickPerRevolution_RRW = 128;
+int tickPerRevolution_LW = 128;
+int tickPerRevolution_RW = 128;
 
 int threshold = 0; // TBD later depending on motor
 
-// não se q porra é essa, dps mexo
 // pid constants of left wheel
 float kp_l = 1.8;
 float ki_l = 5;
@@ -108,15 +96,13 @@ float ki_r = 5;
 float kd_r = 0.1;
 #endif
 
-// pwm parameters setup 
-// não sei direito oq é isso, dps mexo
+// pwm parameters setup
 const int freq = 30000;
 const int pwmChannelLForward = 0;
 const int pwmChannelLBackward = 1;
 const int pwmChannelRForward = 2;
 const int pwmChannelRBackward = 3;
 const int resolution = 8;
-
 
 rclc_executor_t executor;
 rcl_allocator_t allocator;
@@ -127,10 +113,8 @@ rcl_subscription_t subscriber;
 geometry_msgs__msg__Twist msg;
 
 rcl_publisher_t odom_publisher;
-std_msgs__msg__Int32 encodervalue_fl;
-std_msgs__msg__Int32 encodervalue_rl;
-std_msgs__msg__Int32 encodervalue_fr;
-std_msgs__msg__Int32 encodervalue_rr;
+std_msgs__msg__Int32 encodervalue_l;
+std_msgs__msg__Int32 encodervalue_r;
 nav_msgs__msg__Odometry odom_msg;
 
 rcl_timer_t timer;
@@ -143,10 +127,8 @@ unsigned long prev_odom_update = 0;
 Odometry odometry;
 
 // creating objects for right wheel and left wheel
-MotorController frontLeftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
-MotorController rearLeftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
-MotorController frontRightWheel(R_FORW, R_BACK, R_encoderPin, tickPerRevolution_RW);
-MotorController rearRightWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
+MotorController leftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
+MotorController rightWheel(R_FORW, R_BACK, R_encoderPin, tickPerRevolution_RW);
 
 void error_loop(rcl_ret_t returnCode)
 {
@@ -160,32 +142,17 @@ void error_loop(rcl_ret_t returnCode)
 }
 
 // interrupt function for left wheel encoder.
-void updateEncoderFL()
+void updateEncoderL()
 {
-  frontLeftWheel.EncoderCount.data++;
-  encodervalue_fl = frontLeftWheel.EncoderCount;
-}
-
-// interrupt function for left wheel encoder.
-void updateEncoderRL()
-{
-  rearLeftWheel.EncoderCount.data++;
-  encodervalue_rl = rearLeftWheel.EncoderCount;
-}
-
-
-// interrupt function for right wheel encoder
-void updateEncoderFR()
-{
-  frontRightWheel.EncoderCount.data++;
-  encodervalue_fr = frontRightWheel.EncoderCount;
+  leftWheel.EncoderCount.data++;
+  encodervalue_l = leftWheel.EncoderCount;
 }
 
 // interrupt function for right wheel encoder
-void updateEncoderRR()
+void updateEncoderR()
 {
-  rearRightWheel.EncoderCount.data++;
-  encodervalue_rr = rearRightWheel.EncoderCount;
+  rightWheel.EncoderCount.data++;
+  encodervalue_r = rightWheel.EncoderCount;
 }
 
 struct timespec getTime()
@@ -268,43 +235,25 @@ void subscription_callback(const void *msgin)
 
 void configureGPIO()
 {
-  // perguntar pro matheus o que são esses parametros
-  // initializing the pid constants
-  frontLeftWheel.initPID(kp_fl, ki_fl, kd_fl);
-  rearLeftWheel.initPID(kp_rl, ki_rl, kd_rl);
-  frontRightWheel.initPID(kp_fr, ki_fr, kd_fr);
-  rearRightWheel.initPID(kp_rr, ki_rr, kd_rr);
 
+  // initializing the pid constants
+  leftWheel.initPID(kp_l, ki_l, kd_l);
+  rightWheel.initPID(kp_r, ki_r, kd_r);
   // initializing interrupt functions for counting the encoder tick values
-  attachInterrupt(digitalPinToInterrupt(frontLeftWheel.g_EncoderPinA), updateEncoderFL, RISING);
-  attachInterrupt(digitalPinToInterrupt(rearLeftWheel.g_EncoderPinA), updateEncoderRL, RISING);
-  attachInterrupt(digitalPinToInterrupt(frontRightWheel.g_EncoderPinA), updateEncoderFR, RISING);
-  attachInterrupt(digitalPinToInterrupt(rearRightWheel.g_EncoderPinA), updateEncoderRR, RISING);
+  attachInterrupt(digitalPinToInterrupt(leftWheel.g_EncoderPinA), updateEncoderL, RISING);
+  attachInterrupt(digitalPinToInterrupt(rightWheel.g_EncoderPinA), updateEncoderR, RISING);
+
 
   // Initialize PWM signal parameters
-  // Front Left Wheel
-  ledcSetup(pwmChannelFLForward, freq, resolution);
-  ledcAttachPin(frontLeftWheel.g_Forward, pwmChannelFLForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelFLBackward, freq, resolution);
-  ledcAttachPin(frontLeftWheel.g_Backward, pwmChannelFLBackward); // Use Backward pin for PWMedcSetup(pwmChannelLForward, freq, resolution);
-  
-  // Rear Left Wheel
-  ledcSetup(pwmChannelRLForward, freq, resolution);
-  ledcAttachPin(rearLeftWheel.g_Forward, pwmChannelRLForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelRLBackward, freq, resolution);
-  ledcAttachPin(rearLeftWheel.g_Backward, pwmChannelRLBackward); // Use Backward pin for PWM
- 
-  // Front Right Wheel
-  ledcSetup(pwmChannelFRForward, freq, resolution);
-  ledcAttachPin(frontRightWheel.g_Forward, pwmChannelFRForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelFRBackward, freq, resolution);
-  ledcAttachPin(frontRightWheel.g_Backward, pwmChannelFRBackward); // Use Backward pin for PWM
+  ledcSetup(pwmChannelLForward, freq, resolution);
+  ledcAttachPin(leftWheel.g_Forward, pwmChannelLForward); // Use Forward pin for PWM
+  ledcSetup(pwmChannelLBackward, freq, resolution);
+  ledcAttachPin(leftWheel.g_Backward, pwmChannelLBackward); // Use Backward pin for PWM
+  ledcSetup(pwmChannelRForward, freq, resolution);
+  ledcAttachPin(rightWheel.g_Forward, pwmChannelRForward); // Use Forward pin for PWM
+  ledcSetup(pwmChannelRBackward, freq, resolution);
+  ledcAttachPin(rightWheel.g_Backward, pwmChannelRBackward); // Use Backward pin for PWM
 
-  // Rear Right Wheel
-  ledcSetup(pwmChannelRRForward, freq, resolution);
-  ledcAttachPin(rearRightWheel.g_Forward, pwmChannelRRForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelRRBackward, freq, resolution);
-  ledcAttachPin(rearRightWheel.g_Backward, pwmChannelRRBackward); // Use Backward pin for PWM
   
   pinMode(LED_PIN, OUTPUT);
 
@@ -358,7 +307,7 @@ void setup()
   // timer function for controlling the motor base. At every samplingT time
   // MotorControll_callback function is called
   // Here I had set SamplingT=10 Which means at every 10 milliseconds MotorControll_callback function is called
-  const unsigned int samplingT = 10;
+  const unsigned int samplingT = 20;
   RCCHECK(rclc_timer_init_default(
       &ControlTimer,
       &support,
