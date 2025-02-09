@@ -34,23 +34,23 @@
 // pin declaration
 
 // Front Left wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
+int8_t FL_FORW = 35;
+int8_t FL_BACK = 34;
+int8_t FL_encoderPin = 18;
 
 // Rear Left wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
+int8_t RL_FORW = 35;
+int8_t RL_BACK = 34;
+int8_t RL_encoderPin = 18;
 
 // Front Right wheel
-int8_t R_FORW = 26;
-int8_t R_BACK = 25;
-int8_t R_encoderPin = 19;
+int8_t FR_FORW = 26;
+int8_t FR_BACK = 25;
+int8_t FR_encoderPin = 19;
 // Rear Right wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
+int8_t RL_FORW = 35;
+int8_t RL_BACK = 34;
+int8_t RL_encoderPin = 18;
 
 // parameters of the robot
 float wheels_y_distance_ = 0.38;
@@ -111,10 +111,18 @@ float kd_r = 0.1;
 // pwm parameters setup 
 // não sei direito oq é isso, dps mexo
 const int freq = 30000;
-const int pwmChannelLForward = 0;
-const int pwmChannelLBackward = 1;
-const int pwmChannelRForward = 2;
-const int pwmChannelRBackward = 3;
+const int pwmChannelFLForward = 0;
+const int pwmChannelFLBackward = 1;
+
+const int pwmChannelRLForward = 0;
+const int pwmChannelRLBackward = 1;
+
+const int pwmChannelFRForward = 2;
+const int pwmChannelFRBackward = 3;
+
+const int pwmChannelRRForward = 2;
+const int pwmChannelRRBackward = 3;
+
 const int resolution = 8;
 
 
@@ -143,10 +151,10 @@ unsigned long prev_odom_update = 0;
 Odometry odometry;
 
 // creating objects for right wheel and left wheel
-MotorController frontLeftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
-MotorController rearLeftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
-MotorController frontRightWheel(R_FORW, R_BACK, R_encoderPin, tickPerRevolution_RW);
-MotorController rearRightWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
+MotorController frontLeftWheel(FL_FORW, FL_BACK, FL_encoderPin, tickPerRevolution_FLW);
+MotorController rearLeftWheel(RL_FORW, RL_BACK, RL_encoderPin, tickPerRevolution_RLW);
+MotorController frontRightWheel(FR_FORW, FR_BACK, FR_encoderPin, tickPerRevolution_FRW);
+MotorController rearRightWheel(FL_FORW, FL_BACK, RL_encoderPin, tickPerRevolution_RRW);
 
 void error_loop(rcl_ret_t returnCode)
 {
@@ -226,24 +234,32 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
     // current wheel rpm is calculated
-    float currentRpmL = leftWheel.getRpm();
-    float currentRpmR = rightWheel.getRpm();
+    float currentRpmFL = frontLeftWheel.getRpm();
+    float currentRpmRL = rearLeftWheel.getRpm();
+    float currentRpmFR = frontRightWheel.getRpm();
+    float currentRpmRR = rearRightWheel.getRpm();
 
     // pid controlled is used for generating the pwm signal
-    float actuating_signal_LW = leftWheel.pid(vL, currentRpmL);
-    float actuating_signal_RW = rightWheel.pid(vR, currentRpmR);
-
+    float actuating_signal_FLW = frontLeftWheel.pid(vL, currentRpmFL);
+    float actuating_signal_RLW = rearLeftWheel.pid(vL, currentRpmRL);
+    float actuating_signal_FRW = frontRightWheel.pid(vR, currentRpmFR);
+    float actuating_signal_RRW = rearRightWheel.pid(vR, currentRpmRR);
     if (vL == 0 && vR == 0)
     {
-      leftWheel.stop();
-      rightWheel.stop();
+      frontLeftWheel.stop();
+      rearLeftWheel.stop();
+      frontRightWheel.stop();
+      rearRightWheel.stop();
     }
     else
     {
-      leftWheel.moveBase(actuating_signal_LW, pwmChannelLForward, pwmChannelLBackward);
-      rightWheel.moveBase(actuating_signal_RW, pwmChannelRForward, pwmChannelRBackward);
+      frontLeftWheel.moveBase(actuating_signal_FLW, pwmChannelFLForward, pwmChannelFLBackward);
+      rearLeftWheel.moveBase(actuating_signal_RLW, pwmChannelRLForward, pwmChannelRLBackward);
+      frontRightWheel.moveBase(actuating_signal_FRW, pwmChannelFRForward, pwmChannelFRBackward);
+      rearRightWheel.moveBase(actuating_signal_RRW, pwmChannelRRForward, pwmChannelRRBackward);
     }
     // odometry
+    // mexer nisso com calma
     float average_rps_x = ((float)(currentRpmL + currentRpmR) / 2) / 60.0; // RPM
     float linear_x = average_rps_x * wheel_circumference_;                 // m/s
     float average_rps_a = ((float)(-currentRpmL + currentRpmR) / 2) / 60.0;
