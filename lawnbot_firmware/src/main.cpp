@@ -48,9 +48,9 @@ int8_t FR_FORW = 26;
 int8_t FR_BACK = 25;
 int8_t FR_encoderPin = 19;
 // Rear Right wheel
-int8_t RL_FORW = 35;
-int8_t RL_BACK = 34;
-int8_t RL_encoderPin = 18;
+int8_t RR_FORW = 35;
+int8_t RR_BACK = 34;
+int8_t RR_encoderPin = 18;
 
 // parameters of the robot
 float wheels_y_distance_ = 0.38;
@@ -66,14 +66,22 @@ int tickPerRevolution_RRW = 128;
 int threshold = 0; // TBD later depending on motor
 
 // não se q porra é essa, dps mexo
-// pid constants of left wheel
-float kp_l = 1.8;
-float ki_l = 5;
-float kd_l = 0.1;
-// pid constants of right wheel
-float kp_r = 2.25;
-float ki_r = 5;
-float kd_r = 0.1;
+// pid constants of front left wheel
+float kp_fl = 1.8;
+float ki_fl = 5;
+float kd_fl = 0.1;
+// pid constants of rear left wheel
+float kp_rl = 1.8;
+float ki_rl = 5;
+float kd_rl = 0.1;
+// pid constants of front right wheel
+float kp_fr = 2.25;
+float ki_fr = 5;
+float kd_fr = 0.1;
+// pid constants of rear right wheel
+float kp_rr = 2.25;
+float ki_rr = 5;
+float kd_rr = 0.1;
 #else
 // pin declaration
 
@@ -154,7 +162,7 @@ Odometry odometry;
 MotorController frontLeftWheel(FL_FORW, FL_BACK, FL_encoderPin, tickPerRevolution_FLW);
 MotorController rearLeftWheel(RL_FORW, RL_BACK, RL_encoderPin, tickPerRevolution_RLW);
 MotorController frontRightWheel(FR_FORW, FR_BACK, FR_encoderPin, tickPerRevolution_FRW);
-MotorController rearRightWheel(FL_FORW, FL_BACK, RL_encoderPin, tickPerRevolution_RRW);
+MotorController rearRightWheel(RR_FORW, RR_BACK, RR_encoderPin, tickPerRevolution_RRW);
 
 void error_loop(rcl_ret_t returnCode)
 {
