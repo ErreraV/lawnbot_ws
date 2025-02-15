@@ -32,7 +32,7 @@ def generate_launch_description():
         package='controller_manager',
         executable='ros2_control_node',
         parameters=[{'robot_description': Command(['xacro ', default_model_path])},
-                    os.path.join(pkg_share, 'bringup/config', 'lawnbot_controllers.yaml')],
+                    os.path.join(pkg_share, 'config', 'lawnbot_controllers.yaml')],
     )
     rviz_node = Node(
         package='rviz2',
@@ -46,7 +46,7 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_node',
         output='screen',
-        parameters=[os.path.join(pkg_share, 'bringup/config/ekf.yaml')]
+        parameters=[os.path.join(pkg_share, 'config/ekf.yaml')]
     )
 
     return LaunchDescription([
