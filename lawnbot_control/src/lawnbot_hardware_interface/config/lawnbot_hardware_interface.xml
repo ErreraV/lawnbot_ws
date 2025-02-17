@@ -1,3 +1,0 @@
-<library path="liblawnbot_hardware_interface.so">
-  <class name="LawnbotHardwareInterface" type="LawnbotHardwareInterface" base_class_type="hardware_interface::SystemInterface"/>
-</library>

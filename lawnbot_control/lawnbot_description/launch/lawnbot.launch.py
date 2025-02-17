@@ -28,12 +28,6 @@ def generate_launch_description():
         name='joint_state_publisher',
         parameters=[{'robot_description': Command(['xacro ', default_model_path])}],
     )
-    controler_manager_node = Node(
-        package='controller_manager',
-        executable='ros2_control_node',
-        parameters=[{'robot_description': Command(['xacro ', default_model_path])},
-                    os.path.join(pkg_share, 'config', 'lawnbot_controllers.yaml')],
-    )
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -55,7 +49,6 @@ def generate_launch_description():
         microros_agent_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        controler_manager_node,
         rviz_node,
         robot_localization_node
     ])
