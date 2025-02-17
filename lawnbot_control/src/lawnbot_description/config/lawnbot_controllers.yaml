@@ -1,0 +1,26 @@
+controller_manager:
+# Robot hardware configuration
+robot_hardware:
+  type: "LawnbotHardwareInterface"  # The name of the plugin you defined
+  plugin: "liblawnbot_hardware_interface.so"  # Path to the shared library for your hardware interface
+
+# Controller configuration
+controller_manager:
+  ros__parameters:
+    controller_list:
+      - name: "joint_state_controller"
+        type: "joint_state_controller/JointStateController"
+        joints:
+          - front_left_wheel_joint
+          - front_right_wheel_joint
+          - rear_left_wheel_joint
+          - rear_right_wheel_joint
+
+      # Example for a position or velocity controller (customize as needed)
+      - name: "velocity_controller"
+        type: "diff_drive_controller/DiffDriveController"
+        joints:
+          - front_left_wheel_joint
+          - front_right_wheel_joint
+          - rear_left_wheel_joint
+          - rear_right_wheel_joint

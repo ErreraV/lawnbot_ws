@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<robot name="lawnbot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Definel robot constants -->
+    <xacro:property name="base_width" value="0.275"/>
+    <xacro:property name="base_length" value="0.35"/>
+    <xacro:property name="base_height" value="0.18"/>
+
+    <xacro:property name="wheel_radius" value="0.10"/>
+    <xacro:property name="wheel_width" value="0.04"/>
+    <xacro:property name="wheel_ygap" value="0.025"/>
+    <xacro:property name="wheel_zoff" value="0.05"/>
+    <xacro:property name="wheel_xoff" value="0.12"/>
+
+    <!-- Define inertial property macros  -->
+    <xacro:macro name="box_inertia" params="m w h d">
+        <inertial>
+            <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
+            <mass value="${m}"/>
+            <inertia ixx="${(m/12) * (h*h + d*d)}" ixy="0.0" ixz="0.0" iyy="${(m/12) * (w*w + d*d)}" iyz="0.0" izz="${(m/12) * (w*w + h*h)}"/>
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="cylinder_inertia" params="m r h">
+        <inertial>
+            <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+            <mass value="${m}"/>
+            <inertia ixx="${(m/12) * (3*r*r + h*h)}" ixy = "0" ixz = "0" iyy="${(m/12) * (3*r*r + h*h)}" iyz = "0" izz="${(m/2) * (r*r)}"/>
+        </inertial>
+    </xacro:macro>
+    <!-- include parts -->
+    <xacro:include filename="base.urdf"/>
+    <xacro:include filename="wheels.urdf"/>
+    <xacro:include filename="lidar.urdf"/>
+    <xacro:include filename="control.urdf"/>
+</robot>
