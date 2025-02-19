@@ -90,6 +90,7 @@ rcl_subscription_t subscriber;
 geometry_msgs__msg__Twist msg;
 
 rcl_publisher_t odom_publisher;
+rcl_publisher_t tests_publisher;
 std_msgs__msg__Int32 encodervalue_l;
 std_msgs__msg__Int32 encodervalue_r;
 nav_msgs__msg__Odometry odom_msg;
@@ -102,6 +103,7 @@ unsigned long prev_cmd_time = 0;
 unsigned long prev_odom_update = 0;
 
 Odometry odometry;
+int test;
 
 Motor M1_wheel(m1_cw, m1_ccw, EncoderM1Pin, PWM1Pin, PWM1Channel);
 Motor M2_wheel(m2_cw, m2_ccw, EncoderM2Pin, PWM2Pin, PWM2Channel);
@@ -187,6 +189,13 @@ void publishData()
     RCSOFTCHECK(rcl_publish(&odom_publisher, &odom_msg, NULL));
 }
 
+void publish_test()
+{
+    RCSOFTCHECK(rcl_publish(&tests_publisher, &test, NULL));
+}
+
+
+
 // function which controlles the motor
 void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 {
@@ -201,6 +210,15 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20; //alterar isso so n sei o valor
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
+    Serial.print(vL);
+    test = vL;
+    publish_test();
+    Serial.print(" ");
+    Serial.print(vR);
+    test = vR;
+    publish_test();
+    Serial.println();
+
     // current wheel rpm is calculated
     float currentRpmRM1 = M1_wheel.getRPM();
     float currentRpmRM2 = M2_wheel.getRPM();
@@ -214,10 +232,10 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float actuating_signal_LM3 = M3_wheel.pid(vL, currentRpmLM3);
     float actuating_signal_LM4 = M4_wheel.pid(vL, currentRpmLM4);
 
-    Serial.println(actuating_signal_RM1);
-    Serial.println(actuating_signal_RM2);
-    Serial.println(actuating_signal_LM3);
-    Serial.println(actuating_signal_LM4);
+    //Serial.println(actuating_signal_RM1);
+    //Serial.println(actuating_signal_RM2);
+    //Serial.println(actuating_signal_LM3);
+    //Serial.println(actuating_signal_LM4);
 
     u_int8_t control = MotorOff;
 
@@ -340,7 +358,7 @@ void setup()
   
   Serial.println("Initialized ROS allocator");
 
-  // create init_options
+  // create init_optionodometrys
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
   
 
@@ -371,6 +389,11 @@ void setup()
   
   Serial.println("Odom publisher created");
 
+  RCCHECK(rclc_publisher_init_default(
+      &tests_publisher,
+      &node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+      "tests"));
   // timer function for controlling the motor base. At every samplingT time
   // MotorControll_callback function is called
   // Here I had set SamplingT=10 Which means at every 10 milliseconds MotorControll_callback function is called
