@@ -108,12 +108,19 @@ Motor M2_wheel(m2_cw, m2_ccw, EncoderM2Pin, PWM2Pin, PWM2Channel);
 Motor M3_wheel(m3_cw, m3_ccw, EncoderM3Pin, PWM3Pin, PWM3Channel);
 Motor M4_wheel(m4_cw, m4_ccw, EncoderM4Pin, PWM4Pin, PWM4Channel);
 
-uint8_t forward(){
+uint8_t forwardLeft(){
+  return m1_cw + m2_cw + m3_cw + m4_cw;
+}
+uint8_t forwardRight(){
   return m1_cw + m2_cw + m3_cw + m4_cw;
 }
 
-uint8_t backward(){
+
+uint8_t backwardLeft(){
   return m1_ccw + m2_ccw + m3_ccw + m4_ccw;
+}
+uint8_t backwardRight(){
+  return m1_ccw + m2_ccw;
 }
 
 void pulse(uint8_t pin){
@@ -191,7 +198,7 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     angularVelocity = msg.angular.z;
 
     // linear and angular velocities are converted to leftwheel and rightwheel velocities
-    float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20;
+    float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20; //alterar isso so n sei o valor
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
     // current wheel rpm is calculated
@@ -202,29 +209,45 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float currentRpmLM4 = M4_wheel.getRPM();
 
     // pid controlled is used for generating the pwm signal
-    float actuating_signal_LM1 = M1_wheel.pid(vL, currentRpmRM1);
-    float actuating_signal_LM2 = M2_wheel.pid(vL, currentRpmRM2);
+    float actuating_signal_RM1 = M1_wheel.pid(vR, currentRpmRM1);
+    float actuating_signal_RM2 = M2_wheel.pid(vR, currentRpmRM2);
     float actuating_signal_LM3 = M3_wheel.pid(vL, currentRpmLM3);
     float actuating_signal_LM4 = M4_wheel.pid(vL, currentRpmLM4);
 
+    u_int8_t control = MotorOff;
+
+    if (vR > 0)
+    {
+      control += m1_cw + m2_cw;
+    } else if (vR < 0){
+      control += m1_ccw + m2_ccw;
+    }
+
+    if (vL > 0)
+    {
+      control += m3_cw + m4_cw;
+    } else if (vL < 0){
+      control += m3_ccw + m4_ccw;
+    }
+
     if (vL == 0 && vR == 0)
     {
+      writeMotorDir(control);
       M1_wheel.stop();
       M2_wheel.stop();
       M3_wheel.stop();
       M4_wheel.stop();
-    }
-    else
-    {
-      M1_wheel.move(actuating_signal_LM1);
-      M2_wheel.move(actuating_signal_LM2);
+    } else {
+      writeMotorDir(control);
+      M1_wheel.move(actuating_signal_RM1);
+      M2_wheel.move(actuating_signal_RM2);
       M3_wheel.move(actuating_signal_LM3);
       M4_wheel.move(actuating_signal_LM4);
     }
 
     // odometry
-    // float average_rps_x = ((float)(currentRpmL + currentRpmR) / 2) / 60.0; // RPM
-    // float linear_x = average_rps_x * wheel_circumference_;                 // m/s
+    //float average_rps_x = ((float)(currentRpmRM1 + currentRpmRM2 + currentRpmLM3 + currentRpmLM4) / 4) / 60.0; // RPM
+    //float linear_x = average_rps_x * wheel_circumference_;                 // m/s
     // float average_rps_a = ((float)(-currentRpmL + currentRpmR) / 2) / 60.0;
     // float angular_z = (average_rps_a * wheel_circumference_) / (wheels_y_distance_ / 2.0); //  rad/s
     // float linear_y = 0;
