@@ -43,10 +43,10 @@
 
 #define MotorOff 0
 #define m4_cw  1
-#define m2_ccw  2
-#define m1_ccw  4
-#define m1_cw 8
-#define m2_cw 16
+#define m2_cw  2
+#define m1_cw  4
+#define m1_ccw 8
+#define m2_ccw 16
 #define m3_cw  32
 #define m4_ccw 64
 #define m3_ccw 128
@@ -110,20 +110,6 @@ Motor M2_wheel(m2_cw, m2_ccw, EncoderM2Pin, PWM2Pin, PWM2Channel);
 Motor M3_wheel(m3_cw, m3_ccw, EncoderM3Pin, PWM3Pin, PWM3Channel);
 Motor M4_wheel(m4_cw, m4_ccw, EncoderM4Pin, PWM4Pin, PWM4Channel);
 
-uint8_t forwardLeft(){
-  return m1_cw + m2_cw + m3_cw + m4_cw;
-}
-uint8_t forwardRight(){
-  return m1_cw + m2_cw + m3_cw + m4_cw;
-}
-
-
-uint8_t backwardLeft(){
-  return m1_ccw + m2_ccw + m3_ccw + m4_ccw;
-}
-uint8_t backwardRight(){
-  return m1_ccw + m2_ccw;
-}
 
 void pulse(uint8_t pin){
 	digitalWrite(pin, HIGH);
@@ -133,8 +119,7 @@ void pulse(uint8_t pin){
 }
 
 void writeMotorDir(uint8_t control){
-  // Ajuste o duty cycle do PWM para cada motor
-  // Envie os dados de controle para o registrador de deslocamento
+
   for(uint8_t i = 0; i < 8; ++i){
     digitalWrite(SerialPin, control & 0x80 ? HIGH : LOW);
     pulse(ClockPin);
@@ -210,14 +195,6 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20; //alterar isso so n sei o valor
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
-    Serial.print(vL);
-    test = vL;
-    publish_test();
-    Serial.print(" ");
-    Serial.print(vR);
-    test = vR;
-    publish_test();
-    Serial.println();
 
     // current wheel rpm is calculated
     float currentRpmRM1 = M1_wheel.getRPM();
@@ -239,27 +216,35 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     u_int8_t control = MotorOff;
 
+    // test = vR;
+    // publish_test();
+    
     if (vR > 0){
-      control |= m1_cw | m2_cw;
+      control += m1_cw + m2_cw;
+
     } else if (vR < 0){
-      control |= m1_ccw| m2_ccw;
-    } else [
-      control &= !(m1_ccw | m1_cw | m2_ccw | m2_cw);
-    ]
+      control += m1_ccw + m2_ccw;
+
+    } else if (vR == 0){
+      control &= !(m1_cw + m1_ccw + m2_ccw + m2_cw);
+    }
 
     if (vL > 0){
-      control |= m3_cw | m3_cw;
+      control += m3_cw + m4_cw;
+
     } else if (vL < 0){
-      control |= m3_ccw | m4_ccw;
-    } else{
-      control &= !(m3_cw | m3_ccw | m4_ccw | m4_cw);
+      control += m3_ccw + m4_ccw;
+
+    } else if (vR == 0){
+      control &= !(m3_cw + m3_ccw + m4_ccw + m4_cw);
+
     }
 
     writeMotorDir(control);
-    M1_wheel.move(actuating_signal_RM1);
-    M2_wheel.move(actuating_signal_RM2);
-    M3_wheel.move(actuating_signal_LM3);
-    M4_wheel.move(actuating_signal_LM4);
+    M1_wheel.move(vR*200);
+    M2_wheel.move(vR*200);
+    M3_wheel.move(vL*200);
+    M4_wheel.move(vL*200);
 
     // odometry
     //float average_rps_x = ((float)(currentRpmRM1 + currentRpmRM2 + currentRpmLM3 + currentRpmLM4) / 4) / 60.0; // RPM
