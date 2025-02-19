@@ -56,12 +56,14 @@
 #define PWM2Pin 32
 #define PWM3Pin 33
 #define PWM4Pin 25
- 
+#define PWM5pin 13
+
 // Defina os canais PWM
 #define PWM1Channel 0
 #define PWM2Channel 1
 #define PWM3Channel 2
 #define PWM4Channel 3
+#define PWM5Channel 4
 
 // Defina a frequência PWM e a resolução
 #define PWMFrequency 30000
@@ -290,12 +292,15 @@ void configureGPIO()
   ledcSetup(PWM2Channel, PWMFrequency, PWMResolution);
   ledcSetup(PWM3Channel, PWMFrequency, PWMResolution);
   ledcSetup(PWM4Channel, PWMFrequency, PWMResolution);
+  ledcSetup(PWM5Channel, PWMFrequency, PWMResolution);
 
   // Anexe os pinos PWM aos canais
   ledcAttachPin(PWM1Pin, PWM1Channel);
   ledcAttachPin(PWM2Pin, PWM2Channel);
   ledcAttachPin(PWM3Pin, PWM3Channel);
   ledcAttachPin(PWM4Pin, PWM4Channel);
+
+  ledcAttachPin(PWM5pin, PWM5Channel);
 
   
   attachInterrupt(digitalPinToInterrupt(EncoderM1Pin), encoderM1InterruptionHandler, RISING);
@@ -373,11 +378,18 @@ void setup()
   Serial.println("-----------------end setup--------------------");
 }
 
+int count = 0; //tmp
+u_int8_t duty_cycle = 64;
 void loop()
 {
   // put your main code here, to run repeatedly:
   delay(100);
   RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
+  if(count % 1000 == 0;){
+    ledcWrite(PWM5Channel, duty_cycle);
+    duty_cycle = (duty_cycle == 64) ? 0 : 64;
+  }
+  count++;
 }
 
 void syncTime()
