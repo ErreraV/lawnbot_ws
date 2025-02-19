@@ -1,40 +1,39 @@
-#include "motorController.h"
-#include <Arduino.h>
+#include "Motor.h"
 
-MotorController::MotorController(int8_t ForwardPin, int8_t BackwardPin, int8_t EncoderA, int tickPerRevolution)
-{
-    g_Forward = ForwardPin;
-    g_Backward = BackwardPin;
-    g_EncoderPinA = EncoderA;
-    m_ticksPerRevolution = tickPerRevolution;
-    pinMode(g_Forward, OUTPUT);
-    pinMode(g_Backward, OUTPUT);
-    pinMode(g_EncoderPinA, INPUT);
+Motor::Motor(uint8_t cw_bit, uint8_t ccw_bit,int encoder_pin, int pwm_pin, int pwm_channel){
+    m_cw_bit = cw_bit;
+    m_ccw_bit = ccw_bit;
+    m_encoder_pin = encoder_pin;
+    m_pwm_pin = pwm_pin;
+    m_pwm_channel = pwm_channel;
+    m_current_position = 0;
+    m_previous_position = 0;
+    m_previous_time = millis();
+    m_current_time = 0;
+    m_rpm = 0;
+
+    rpmFilt = 1;
+    eintegral= 0;
+    ederivative= 0;
+    rpmPrev= 0;
+    kp= 0;
+    ki= 0;
+    kd= 0;
+    error= 0;
+    previousError = 0;
+    CurrentTimeforError = 0;
+    PreviousTimeForError = millis();
+    pinMode(m_encoder_pin, INPUT);
 }
 
-void MotorController::initPID(float proportionalGain, float integralGain, float derivativeGain)
+void Motor::initPID(float proportionalGain, float integralGain, float derivativeGain)
 {
     kp = proportionalGain;
     ki = integralGain;
     kd = derivativeGain;
 }
 
-float MotorController::getRpm()
-{
-    CurrentPosition = EncoderCount.data;
-    CurrentTime = millis();
-    float delta1 = ((float)CurrentTime - PreviousTime) / 1.0e3;
-    float velocity = ((float)CurrentPosition - PreviousPosition) / delta1;
-    float rpm = (velocity / m_ticksPerRevolution) * 60;
-    rpmFilt = 0.854 * rpmFilt + 0.0728 * rpm + 0.0728 * rpmPrev;
-    float rpmPrev = rpm;
-    PreviousPosition = CurrentPosition;
-    PreviousTime = CurrentTime;
-    // Serial.println(rpmFilt);
-    return rpmFilt;
-}
-
-float MotorController::pid(float setpoint, float feedback)
+float Motor::pid(float setpoint, float feedback)
 {
     CurrentTimeforError = millis();
     float delta2 = ((float)CurrentTimeforError - PreviousTimeForError) / 1.0e3;
@@ -48,28 +47,30 @@ float MotorController::pid(float setpoint, float feedback)
     return control_signal;
 }
 
-void MotorController::moveBase(float ActuatingSignal, int pwmChannelForward, int pwmChannelBackward)
-{
-    int pwm = (int)fabs(ActuatingSignal);
+void Motor::calculateVelocity(){
+    m_current_position = m_encoder_value;
+    m_current_time = millis();
+
+    float delta = ((float)m_current_time - m_previous_time) / 1.0e3;
+    float velocity = ((float)m_current_position - m_previous_position) / delta;
+    float rpm = (velocity / ticks_per_rev) * 60;
+    //rpmFilt = 0.854 * rpmFilt + 0.0728 * rpm + 0.0728 * rpmPrev;
+
+    //fazer pid dps
+    //Serial.println(rpm);
+    m_previous_time = m_current_time;
+    m_previous_position = m_current_position;
+    m_rpm = rpm;
+}
+
+void Motor::stop(){
+    ledcWrite(m_pwm_channel, 0);
+}
+
+void Motor::move(float signal){
+    int pwm = (int)fabs(signal);
     if (pwm > 255)
         pwm = 255;
 
-    if (ActuatingSignal > 0)
-    {
-        ledcWrite(pwmChannelForward, pwm);
-        ledcWrite(pwmChannelBackward, 0);
-    }
-    else
-    {
-        ledcWrite(pwmChannelForward, 0);
-        ledcWrite(pwmChannelBackward, pwm);
-    }
-}
-
-void MotorController::stop()
-{
-    ledcWrite(0, 0);
-    ledcWrite(1, 0);
-    ledcWrite(2, 0);
-    ledcWrite(3, 0);
+    ledcWrite(m_pwm_channel, pwm);
 }
