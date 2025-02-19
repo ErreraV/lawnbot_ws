@@ -232,12 +232,23 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     if (vL == 0 && vR == 0)
     {
-      writeMotorDir(control);
+      writeMotorDir(MotorOff);
       M1_wheel.stop();
       M2_wheel.stop();
       M3_wheel.stop();
       M4_wheel.stop();
-    } else {
+    } else if (vL == 0){
+      control &= !(m3_ccw + m3_cw + m4_ccw + m4_cw);
+      writeMotorDir(control);
+      M3_wheel.stop();
+      M4_wheel.stop();
+    } else if (vR == 0){
+      control &= !(m1_ccw + m1_cw + m2_ccw + m2_cw);
+      writeMotorDir(control);
+      M1_wheel.stop();
+      M2_wheel.stop();     
+    }
+    else {
       writeMotorDir(control);
       M1_wheel.move(actuating_signal_RM1);
       M2_wheel.move(actuating_signal_RM2);
