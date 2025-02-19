@@ -239,52 +239,27 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     u_int8_t control = MotorOff;
 
-    if (vR > 0)
-    {
-      control += m1_cw + m2_cw;
+    if (vR > 0){
+      control |= m1_cw | m2_cw;
     } else if (vR < 0){
-      control += m1_ccw + m2_ccw;
-    }
+      control |= m1_ccw| m2_ccw;
+    } else [
+      control &= !(m1_ccw | m1_cw | m2_ccw | m2_cw);
+    ]
 
-    if (vL > 0)
-    {
-      control += m3_cw + m4_cw;
+    if (vL > 0){
+      control |= m3_cw | m3_cw;
     } else if (vL < 0){
-      control += m3_ccw + m4_ccw;
+      control |= m3_ccw | m4_ccw;
+    } else{
+      control &= !(m3_cw | m3_ccw | m4_ccw | m4_cw);
     }
 
-    if (vL == 0 && vR == 0)
-    {
-      writeMotorDir(MotorOff);
-      M1_wheel.stop();
-      M2_wheel.stop();
-      M3_wheel.stop();
-      M4_wheel.stop();
-    } else if (vL == 0){
-      control &= !(m3_ccw + m3_cw + m4_ccw + m4_cw);
-      writeMotorDir(control);
-      M1_wheel.move(actuating_signal_RM1);
-      M1_wheel.move(actuating_signal_RM2);
-      M3_wheel.stop();
-      M4_wheel.stop();
-
-    } else if (vR == 0){
-      control &= !(m1_ccw + m1_cw + m2_ccw + m2_cw);
-
-      writeMotorDir(control);
-
-      M1_wheel.stop();
-      M2_wheel.stop();     
-      M3_wheel.move(actuating_signal_LM3);
-      M4_wheel.move(actuating_signal_LM4);
-    }
-    else {
-      writeMotorDir(control);
-      M1_wheel.move(actuating_signal_RM1);
-      M2_wheel.move(actuating_signal_RM2);
-      M3_wheel.move(actuating_signal_LM3);
-      M4_wheel.move(actuating_signal_LM4);
-    }
+    writeMotorDir(control);
+    M1_wheel.move(actuating_signal_RM1);
+    M2_wheel.move(actuating_signal_RM2);
+    M3_wheel.move(actuating_signal_LM3);
+    M4_wheel.move(actuating_signal_LM4);
 
     // odometry
     //float average_rps_x = ((float)(currentRpmRM1 + currentRpmRM2 + currentRpmLM3 + currentRpmLM4) / 4) / 60.0; // RPM

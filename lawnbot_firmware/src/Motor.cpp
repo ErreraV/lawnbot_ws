@@ -68,9 +68,15 @@ void Motor::stop(){
 }
 
 void Motor::move(float signal){
-    int pwm = (int)fabs(signal);
-    if (pwm > 255)
-        pwm = 255;
+    if(!signal){
+        stop();
+        
+    }else{
+        int pwm = (int)fabs(signal);
+        if (pwm > 255)
+            pwm = 255;
+    
+        ledcWrite(m_pwm_channel, pwm);
+    }
 
-    ledcWrite(m_pwm_channel, pwm);
 }
