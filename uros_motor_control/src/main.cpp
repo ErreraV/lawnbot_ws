@@ -140,7 +140,6 @@ void error_loop(rcl_ret_t returnCode)
     Serial.println(returnCode);
     while(1)
     {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
         delay(500);
     }
 }
@@ -200,11 +199,11 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float currentRpmRM2 = M2_wheel.getRPM();
 
     float currentRpmLM3 = M3_wheel.getRPM();
-    float currentRpMLM4 = M4_wheel.getRPM();
+    float currentRpmLM4 = M4_wheel.getRPM();
 
     // pid controlled is used for generating the pwm signal
-    float actuating_signal_LM1 = M1_wheel.pid(vL, currentRpmLM1)
-    float actuating_signal_LM2 = M2_wheel.pid(vL, currentRpmLM2)
+    float actuating_signal_LM1 = M1_wheel.pid(vL, currentRpmRM1);
+    float actuating_signal_LM2 = M2_wheel.pid(vL, currentRpmRM2);
     float actuating_signal_LM3 = M3_wheel.pid(vL, currentRpmLM3);
     float actuating_signal_LM4 = M4_wheel.pid(vL, currentRpmLM4);
 
@@ -224,21 +223,21 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     }
 
     // odometry
-    float average_rps_x = ((float)(currentRpmL + currentRpmR) / 2) / 60.0; // RPM
-    float linear_x = average_rps_x * wheel_circumference_;                 // m/s
-    float average_rps_a = ((float)(-currentRpmL + currentRpmR) / 2) / 60.0;
-    float angular_z = (average_rps_a * wheel_circumference_) / (wheels_y_distance_ / 2.0); //  rad/s
-    float linear_y = 0;
-    unsigned long now = millis();
-    float vel_dt = (now - prev_odom_update) / 1000.0;
-    prev_odom_update = now;
+    // float average_rps_x = ((float)(currentRpmL + currentRpmR) / 2) / 60.0; // RPM
+    // float linear_x = average_rps_x * wheel_circumference_;                 // m/s
+    // float average_rps_a = ((float)(-currentRpmL + currentRpmR) / 2) / 60.0;
+    // float angular_z = (average_rps_a * wheel_circumference_) / (wheels_y_distance_ / 2.0); //  rad/s
+    // float linear_y = 0;
+    // unsigned long now = millis();
+    // float vel_dt = (now - prev_odom_update) / 1000.0;
+    // prev_odom_update = now;
     
-    odometry.update(
-        vel_dt,
-        linear_x,
-        linear_y,
-        angular_z);
-    publishData();
+    // odometry.update(
+    //     vel_dt,
+    //     linear_x,
+    //     linear_y,
+    //     angular_z);
+    // publishData();
 }
 
 void subscription_callback(const void *msgin)
@@ -250,10 +249,10 @@ void configureGPIO()
 {
 
   // initializing the pid constants
-  M1_wheel.initPID(kp,ki,kg);
-  M2_wheel.initPID(kp,ki,kg);
-  M3_wheel.initPID(kp,ki,kg);
-  M4_wheel.initPID(kp,ki,kg);
+  M1_wheel.initPID(kp,ki,kd);
+  M2_wheel.initPID(kp,ki,kd);
+  M3_wheel.initPID(kp,ki,kd);
+  M4_wheel.initPID(kp,ki,kd);
 
 
   pinMode(SerialPin, OUTPUT);
