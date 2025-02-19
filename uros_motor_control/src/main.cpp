@@ -19,7 +19,7 @@
 #include <odometry.h>
 
 // custom
-#include "motorController.h"
+#include "Motor.h"
 
 #if !defined(MICRO_ROS_TRANSPORT_ARDUINO_SERIAL)
 #error This code expects Arduino framework with serial transport
@@ -28,81 +28,58 @@
 #define RCCHECK(fn){rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){Serial.println("error: ");Serial.println(temp_rc);Serial.println(RCL_RET_OK);error_loop(temp_rc);}}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
 
-#define LED_PIN 2
-// #define BELLATOR
-#ifndef BELLATOR
+
 // pin declaration
+#define SerialPin 21
+#define ClockPin 19
+#define LatchPin 23
+#define EnablePin 18
 
-// Left wheel
-int8_t L_FORW = 35;
-int8_t L_BACK = 34;
-int8_t L_encoderPin = 18;
+// Pinos Encoder
+#define EncoderM1Pin 26
+#define EncoderM2Pin 27
+#define EncoderM3Pin 14
+#define EncoderM4Pin 12
 
-// right wheel
-int8_t R_FORW = 26;
-int8_t R_BACK = 25;
-int8_t R_encoderPin = 19;
+#define MotorOff 0
+#define m4_cw  1
+#define m2_ccw  2
+#define m1_ccw  4
+#define m1_cw 8
+#define m2_cw 16
+#define m3_cw  32
+#define m4_ccw 64
+#define m3_ccw 128
 
-// parameters of the robot
+// Defina os pinos PWM
+#define PWM1Pin 22
+#define PWM2Pin 32
+#define PWM3Pin 33
+#define PWM4Pin 25
+ 
+// Defina os canais PWM
+#define PWM1Channel 0
+#define PWM2Channel 1
+#define PWM3Channel 2
+#define PWM4Channel 3
+
+// Defina a frequência PWM e a resolução
+#define PWMFrequency 30000
+#define PWMResolution 8
+
+
+// parameters of the robot  
 float wheels_y_distance_ = 0.38;
 float wheel_radius = 0.10;
 float wheel_circumference_ = 2 * 3.14 * wheel_radius;
 
-// encoder value per revolution of left wheel and right wheel
-int tickPerRevolution_LW = 128;
-int tickPerRevolution_RW = 128;
-
-int threshold = 0; // TBD later depending on motor
 
 // pid constants of left wheel
-float kp_l = 1.8;
-float ki_l = 5;
-float kd_l = 0.1;
-// pid constants of right wheel
-float kp_r = 2.25;
-float ki_r = 5;
-float kd_r = 0.1;
-#else
-// pin declaration
+float kp = 1.8;
+float ki = 5;
+float kd = 0.1;
 
-// Left wheel
-int8_t L_FORW = 26;
-int8_t L_BACK = 14;
-int8_t L_encoderPin = 27;
 
-// right wheel
-int8_t R_FORW = 3;
-int8_t R_BACK = 1;
-int8_t R_encoderPin = 16;
-
-// parameters of the robot
-float wheels_y_distance_ = 0.1;
-float wheel_radius = 0.02;
-float wheel_circumference_ = 2 * 3.14 * wheel_radius;
-
-// encoder value per revolution of left wheel and right wheel
-int tickPerRevolution_LW = 128;
-int tickPerRevolution_RW = 128;
-
-int threshold = 0; // TBD later depending on motor
-
-// pid constants of left wheel
-float kp_l = 1.8;
-float ki_l = 5;
-float kd_l = 0.1;
-// pid constants of right wheel
-float kp_r = 2.25;
-float ki_r = 5;
-float kd_r = 0.1;
-#endif
-
-// pwm parameters setup
-const int freq = 30000;
-const int pwmChannelLForward = 0;
-const int pwmChannelLBackward = 1;
-const int pwmChannelRForward = 2;
-const int pwmChannelRBackward = 3;
-const int resolution = 8;
 
 rclc_executor_t executor;
 rcl_allocator_t allocator;
@@ -126,9 +103,36 @@ unsigned long prev_odom_update = 0;
 
 Odometry odometry;
 
-// creating objects for right wheel and left wheel
-MotorController leftWheel(L_FORW, L_BACK, L_encoderPin, tickPerRevolution_LW);
-MotorController rightWheel(R_FORW, R_BACK, R_encoderPin, tickPerRevolution_RW);
+Motor M1_wheel(m1_cw, m1_ccw, EncoderM1Pin, PWM1Pin, PWM1Channel);
+Motor M2_wheel(m2_cw, m2_ccw, EncoderM2Pin, PWM2Pin, PWM2Channel);
+Motor M3_wheel(m3_cw, m3_ccw, EncoderM3Pin, PWM3Pin, PWM3Channel);
+Motor M4_wheel(m4_cw, m4_ccw, EncoderM4Pin, PWM4Pin, PWM4Channel);
+
+uint8_t forward(){
+  return m1_cw + m2_cw + m3_cw + m4_cw;
+}
+
+uint8_t backward(){
+  return m1_ccw + m2_ccw + m3_ccw + m4_ccw;
+}
+
+void pulse(uint8_t pin){
+	digitalWrite(pin, HIGH);
+	delay(1);
+	digitalWrite(pin, LOW);
+	delay(1);
+}
+
+void writeMotorDir(uint8_t control){
+  // Ajuste o duty cycle do PWM para cada motor
+  // Envie os dados de controle para o registrador de deslocamento
+  for(uint8_t i = 0; i < 8; ++i){
+    digitalWrite(SerialPin, control & 0x80 ? HIGH : LOW);
+    pulse(ClockPin);
+    control <<= 1;
+  }
+  pulse(LatchPin);  
+}
 
 void error_loop(rcl_ret_t returnCode)
 {
@@ -141,18 +145,17 @@ void error_loop(rcl_ret_t returnCode)
     }
 }
 
-// interrupt function for left wheel encoder.
-void updateEncoderL()
-{
-  leftWheel.EncoderCount.data++;
-  encodervalue_l = leftWheel.EncoderCount;
+void encoderM1InterruptionHandler(){
+  M1_wheel.incrementEncoderData();
 }
-
-// interrupt function for right wheel encoder
-void updateEncoderR()
-{
-  rightWheel.EncoderCount.data++;
-  encodervalue_r = rightWheel.EncoderCount;
+void encoderM2InterruptionHandler(){
+  M2_wheel.incrementEncoderData();
+}
+void encoderM3InterruptionHandler(){
+  M3_wheel.incrementEncoderData();
+}
+void encoderM4InterruptionHandler(){
+  M4_wheel.incrementEncoderData();
 }
 
 struct timespec getTime()
@@ -193,23 +196,33 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
     // current wheel rpm is calculated
-    float currentRpmL = leftWheel.getRpm();
-    float currentRpmR = rightWheel.getRpm();
+    float currentRpmRM1 = M1_wheel.getRPM();
+    float currentRpmRM2 = M2_wheel.getRPM();
+
+    float currentRpmLM3 = M3_wheel.getRPM();
+    float currentRpMLM4 = M4_wheel.getRPM();
 
     // pid controlled is used for generating the pwm signal
-    float actuating_signal_LW = leftWheel.pid(vL, currentRpmL);
-    float actuating_signal_RW = rightWheel.pid(vR, currentRpmR);
+    float actuating_signal_LM1 = M1_wheel.pid(vL, currentRpmLM1)
+    float actuating_signal_LM2 = M2_wheel.pid(vL, currentRpmLM2)
+    float actuating_signal_LM3 = M3_wheel.pid(vL, currentRpmLM3);
+    float actuating_signal_LM4 = M4_wheel.pid(vL, currentRpmLM4);
 
     if (vL == 0 && vR == 0)
     {
-      leftWheel.stop();
-      rightWheel.stop();
+      M1_wheel.stop();
+      M2_wheel.stop();
+      M3_wheel.stop();
+      M4_wheel.stop();
     }
     else
     {
-      leftWheel.moveBase(actuating_signal_LW, pwmChannelLForward, pwmChannelLBackward);
-      rightWheel.moveBase(actuating_signal_RW, pwmChannelRForward, pwmChannelRBackward);
+      M1_wheel.move(actuating_signal_LM1);
+      M2_wheel.move(actuating_signal_LM2);
+      M3_wheel.move(actuating_signal_LM3);
+      M4_wheel.move(actuating_signal_LM4);
     }
+
     // odometry
     float average_rps_x = ((float)(currentRpmL + currentRpmR) / 2) / 60.0; // RPM
     float linear_x = average_rps_x * wheel_circumference_;                 // m/s
@@ -237,29 +250,38 @@ void configureGPIO()
 {
 
   // initializing the pid constants
-  leftWheel.initPID(kp_l, ki_l, kd_l);
-  rightWheel.initPID(kp_r, ki_r, kd_r);
-  // initializing interrupt functions for counting the encoder tick values
-  attachInterrupt(digitalPinToInterrupt(leftWheel.g_EncoderPinA), updateEncoderL, RISING);
-  attachInterrupt(digitalPinToInterrupt(rightWheel.g_EncoderPinA), updateEncoderR, RISING);
+  M1_wheel.initPID(kp,ki,kg);
+  M2_wheel.initPID(kp,ki,kg);
+  M3_wheel.initPID(kp,ki,kg);
+  M4_wheel.initPID(kp,ki,kg);
 
 
-  // Initialize PWM signal parameters
-  ledcSetup(pwmChannelLForward, freq, resolution);
-  ledcAttachPin(leftWheel.g_Forward, pwmChannelLForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelLBackward, freq, resolution);
-  ledcAttachPin(leftWheel.g_Backward, pwmChannelLBackward); // Use Backward pin for PWM
-  ledcSetup(pwmChannelRForward, freq, resolution);
-  ledcAttachPin(rightWheel.g_Forward, pwmChannelRForward); // Use Forward pin for PWM
-  ledcSetup(pwmChannelRBackward, freq, resolution);
-  ledcAttachPin(rightWheel.g_Backward, pwmChannelRBackward); // Use Backward pin for PWM
+  pinMode(SerialPin, OUTPUT);
+  pinMode(ClockPin, OUTPUT);
+  pinMode(LatchPin, OUTPUT);
+  pinMode(EnablePin, OUTPUT);
+  //pinMode(Encoder1Pin, INPUT);
+
+  // Configure os canais PWM
+  ledcSetup(PWM1Channel, PWMFrequency, PWMResolution);
+  ledcSetup(PWM2Channel, PWMFrequency, PWMResolution);
+  ledcSetup(PWM3Channel, PWMFrequency, PWMResolution);
+  ledcSetup(PWM4Channel, PWMFrequency, PWMResolution);
+
+  // Anexe os pinos PWM aos canais
+  ledcAttachPin(PWM1Pin, PWM1Channel);
+  ledcAttachPin(PWM2Pin, PWM2Channel);
+  ledcAttachPin(PWM3Pin, PWM3Channel);
+  ledcAttachPin(PWM4Pin, PWM4Channel);
 
   
-  pinMode(LED_PIN, OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(EncoderM1Pin), encoderM1InterruptionHandler, RISING);
+  attachInterrupt(digitalPinToInterrupt(EncoderM2Pin), encoderM2InterruptionHandler, RISING);
+  attachInterrupt(digitalPinToInterrupt(EncoderM3Pin), encoderM3InterruptionHandler, RISING);
+  attachInterrupt(digitalPinToInterrupt(EncoderM4Pin), encoderM4InterruptionHandler, RISING);
 
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(EnablePin, LOW);
 }
-
 void setup()
 {
   
