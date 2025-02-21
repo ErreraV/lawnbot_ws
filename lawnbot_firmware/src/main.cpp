@@ -65,6 +65,10 @@
 #define PWM4Channel 3
 #define PWM5Channel 4
 
+// Defina o pino da lamina
+
+#define BladePin 13
+
 // Defina a frequência PWM e a resolução
 #define PWMFrequency 30000
 #define PWMResolution 8
@@ -89,7 +93,9 @@ rclc_support_t support;
 rcl_node_t node;
 
 rcl_subscription_t subscriber;
-geometry_msgs__msg__Twist msg;
+geometry_msgs__msg__Twist cmd_vel_msg;
+rcl_subscription_t blade_subscriber;
+std_msgs__msg__Int32 blade_msg;
 
 rcl_publisher_t odom_publisher;
 rcl_publisher_t tests_publisher;
@@ -186,12 +192,14 @@ void publish_test()
 // function which controlles the motor
 void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 {
+    // const geometry_msgs__msg__Twist *cmd_vel_msg = (const geometry_msgs__msg__Twist *)msgin;
+
     float linearVelocity;
     float angularVelocity;
 
     // linear velocity and angular velocity send cmd_vel topic
-    linearVelocity = msg.linear.x;
-    angularVelocity = msg.angular.z;
+    linearVelocity = cmd_vel_msg.linear.x;
+    angularVelocity = cmd_vel_msg.angular.z;
 
     // linear and angular velocities are converted to leftwheel and rightwheel velocities
     float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20; //alterar isso so n sei o valor
@@ -271,6 +279,17 @@ void subscription_callback(const void *msgin)
     prev_cmd_time = millis();
 }
 
+void blade_callback(const void * msgin){
+  const std_msgs__msg__Int32 * blade_msg = (const std_msgs__msg__Int32 *)msgin;
+  if(blade_msg->data == 1){
+    digitalWrite(BladePin, HIGH);
+  } else {
+    digitalWrite(BladePin, LOW);
+  }
+  test = blade_msg->data;
+  publish_test();
+}
+
 void configureGPIO()
 {
 
@@ -285,6 +304,7 @@ void configureGPIO()
   pinMode(ClockPin, OUTPUT);
   pinMode(LatchPin, OUTPUT);
   pinMode(EnablePin, OUTPUT);
+  pinMode(BladePin, OUTPUT);
   //pinMode(Encoder1Pin, INPUT);
 
   // Configure os canais PWM
@@ -342,6 +362,12 @@ void setup()
       ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
       "cmd_vel"));
 
+  RCCHECK(rclc_subscription_init_default(
+    &blade_subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+    "/blade_state"));
+
   Serial.println("/cmdvel subscriber created");
 
   
@@ -369,9 +395,10 @@ void setup()
       RCL_MS_TO_NS(samplingT),
       MotorControll_callback));
   // create executor
-  RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
-  RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &msg, &subscription_callback, ON_NEW_DATA));
-  // RCCHECK(rclc_executor_add_timer(&executor, &timer));
+  RCCHECK(rclc_executor_init(&executor, &support.context, 3, &allocator));
+  RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &cmd_vel_msg, &subscription_callback, ON_NEW_DATA));
+  RCCHECK(rclc_executor_add_subscription(&executor, &blade_subscriber, &blade_msg, blade_callback, ON_NEW_DATA));
+
   RCCHECK(rclc_executor_add_timer(&executor, &ControlTimer));
 
   configureGPIO();
@@ -385,7 +412,7 @@ void loop()
   // put your main code here, to run repeatedly:
   delay(100);
   RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
-  if(count % 1000 == 0;){
+  if(count % 1000 == 0){
     ledcWrite(PWM5Channel, duty_cycle);
     duty_cycle = (duty_cycle == 64) ? 0 : 64;
   }
