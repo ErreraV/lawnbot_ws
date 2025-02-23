@@ -8,6 +8,7 @@
 #include <rclc/executor.h>
 #include <geometry_msgs/msg/twist.h>
 #include <std_msgs/msg/int32.h>
+#include <std_msgs/msg/string.h>
 #include <nav_msgs/msg/odometry.h>
 #include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/vector3.h>
@@ -96,7 +97,8 @@ rcl_subscription_t blade_subscriber;
 std_msgs__msg__Int32 blade_msg;
 
 rcl_publisher_t odom_publisher;
-rcl_publisher_t tests_publisher;
+rcl_publisher_t debug_publisher;
+std_msgs__msg__String debug;
 std_msgs__msg__Int32 encodervalue_l;
 std_msgs__msg__Int32 encodervalue_r;
 nav_msgs__msg__Odometry odom_msg;
@@ -109,7 +111,7 @@ unsigned long prev_cmd_time = 0;
 unsigned long prev_odom_update = 0;
 
 Odometry odometry;
-int test;
+char debug_buffer[50];
 
 Motor M1_wheel(m1_cw, m1_ccw, EncoderM1Pin, PWM1Pin, PWM1Channel);
 Motor M2_wheel(m2_cw, m2_ccw, EncoderM2Pin, PWM2Pin, PWM2Channel);
@@ -180,12 +182,13 @@ void publishData()
     RCSOFTCHECK(rcl_publish(&odom_publisher, &odom_msg, NULL));
 }
 
-void publish_test()
+void publishDebug()
 {
-    RCSOFTCHECK(rcl_publish(&tests_publisher, &test, NULL));
+    debug.data.data = debug_buffer;
+    debug.data.size = strlen(debug_buffer);
+    debug.data.capacity = strlen(debug_buffer) + 1;
+    RCSOFTCHECK(rcl_publish(&debug_publisher, &debug, NULL));
 }
-
-
 
 // function which controlles the motor
 void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
@@ -284,8 +287,8 @@ void blade_callback(const void * msgin){
   } else {
     digitalWrite(BladePin, LOW);
   }
-  test = blade_msg->data;
-  publish_test();
+  sprintf(debug_buffer, "Blade state: %d", blade_msg->data);
+  publishDebug();
 }
 
 void configureGPIO()
@@ -377,10 +380,10 @@ void setup()
   Serial.println("Odom publisher created");
 
   RCCHECK(rclc_publisher_init_default(
-      &tests_publisher,
+      &debug_publisher,
       &node,
-      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-      "tests"));
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
+      "debug"));
   // timer function for controlling the motor base. At every samplingT time
   // MotorControll_callback function is called
   // Here I had set SamplingT=10 Which means at every 10 milliseconds MotorControll_callback function is called
