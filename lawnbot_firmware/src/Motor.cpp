@@ -13,39 +13,9 @@ Motor::Motor(uint8_t cw_bit, uint8_t ccw_bit,int encoder_pin, int pwm_pin, int p
     m_rpm = 0;
 
     rpmFilt = 1;
-    eintegral= 0;
-    ederivative= 0;
-    rpmPrev= 0;
-    kp= 0;
-    ki= 0;
-    kd= 0;
-    error= 0;
-    previousError = 0;
-    CurrentTimeforError = 0;
-    PreviousTimeForError = millis();
     pinMode(m_encoder_pin, INPUT);
 }
 
-void Motor::initPID(float proportionalGain, float integralGain, float derivativeGain)
-{
-    kp = proportionalGain;
-    ki = integralGain;
-    kd = derivativeGain;
-}
-
-float Motor::pid(float setpoint, float feedback)
-{
-    CurrentTimeforError = millis();
-    float delta2 = ((float)CurrentTimeforError - PreviousTimeForError) / 1.0e3;
-    error = setpoint - feedback;
-    eintegral = eintegral + (error * delta2);
-    ederivative = (error - previousError) / delta2;
-    float control_signal = (kp * error) + (ki * eintegral) + (kd * ederivative);
-
-    previousError = error;
-    PreviousTimeForError = CurrentTimeforError;
-    return control_signal;
-}
 
 void Motor::calculateVelocity(){
     m_current_position = m_encoder_value;
@@ -56,8 +26,6 @@ void Motor::calculateVelocity(){
     float rpm = (velocity / ticks_per_rev) * 60;
     //rpmFilt = 0.854 * rpmFilt + 0.0728 * rpm + 0.0728 * rpmPrev;
 
-    //fazer pid dps
-    //Serial.println(rpm);
     m_previous_time = m_current_time;
     m_previous_position = m_current_position;
     m_rpm = rpm;

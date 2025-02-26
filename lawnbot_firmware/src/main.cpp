@@ -74,17 +74,9 @@
 
 
 // parameters of the robot  
-float wheels_y_distance_ = 0.38;
-float wheel_radius = 0.10;
+float wheels_y_distance_ = 0.31;
+float wheel_radius = 0.07;
 float wheel_circumference_ = 2 * 3.14 * wheel_radius;
-
-
-// pid constants of left wheel
-float kp = 1.8;
-float ki = 5;
-float kd = 0.1;
-
-
 
 rclc_executor_t executor;
 rcl_allocator_t allocator;
@@ -206,7 +198,6 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vL = (linearVelocity - (angularVelocity * 1 / 2)) * 20; //alterar isso so n sei o valor
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
-
     // current wheel rpm is calculated
     float currentRpmRM1 = M1_wheel.getRPM();
     float currentRpmRM2 = M2_wheel.getRPM();
@@ -214,21 +205,8 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float currentRpmLM3 = M3_wheel.getRPM();
     float currentRpmLM4 = M4_wheel.getRPM();
 
-    // pid controlled is used for generating the pwm signal
-    float actuating_signal_RM1 = M1_wheel.pid(vR, currentRpmRM1);
-    float actuating_signal_RM2 = M2_wheel.pid(vR, currentRpmRM2);
-    float actuating_signal_LM3 = M3_wheel.pid(vL, currentRpmLM3);
-    float actuating_signal_LM4 = M4_wheel.pid(vL, currentRpmLM4);
-
-    //Serial.println(actuating_signal_RM1);
-    //Serial.println(actuating_signal_RM2);
-    //Serial.println(actuating_signal_LM3);
-    //Serial.println(actuating_signal_LM4);
 
     u_int8_t control = MotorOff;
-
-    // test = vR;
-    // publish_test();
     
     if (vR > 0){
       control += m1_cw + m2_cw;
@@ -252,10 +230,10 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     }
 
     writeMotorDir(control);
-    M1_wheel.move(vR*200);
-    M2_wheel.move(vR*200);
-    M3_wheel.move(vL*200);
-    M4_wheel.move(vL*200);
+    M1_wheel.move(vR);
+    M2_wheel.move(vR);
+    M3_wheel.move(vL);
+    M4_wheel.move(vL);
 
     // odometry
     //float average_rps_x = ((float)(currentRpmRM1 + currentRpmRM2 + currentRpmLM3 + currentRpmLM4) / 4) / 60.0; // RPM
@@ -294,19 +272,11 @@ void blade_callback(const void * msgin){
 void configureGPIO()
 {
 
-  // initializing the pid constants
-  M1_wheel.initPID(kp,ki,kd);
-  M2_wheel.initPID(kp,ki,kd);
-  M3_wheel.initPID(kp,ki,kd);
-  M4_wheel.initPID(kp,ki,kd);
-
-
   pinMode(SerialPin, OUTPUT);
   pinMode(ClockPin, OUTPUT);
   pinMode(LatchPin, OUTPUT);
   pinMode(EnablePin, OUTPUT);
   pinMode(BladePin, OUTPUT);
-  //pinMode(Encoder1Pin, INPUT);
 
   // Configure os canais PWM
   ledcSetup(PWM1Channel, PWMFrequency, PWMResolution);
