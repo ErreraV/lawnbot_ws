@@ -182,6 +182,11 @@ void publishDebug()
     RCSOFTCHECK(rcl_publish(&debug_publisher, &debug, NULL));
 }
 
+float getSignal(float velocity){
+  float signal = 255 * velocity / 0.73; // 0.73 eh a velocidade maxima do motor
+  return signal;
+}
+
 // function which controlles the motor
 void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 {
@@ -189,6 +194,7 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     float linearVelocity;
     float angularVelocity;
+    float acceleration_factor = 0.2;
 
     // linear velocity and angular velocity send cmd_vel topic
     linearVelocity = cmd_vel_msg.linear.x;
@@ -199,41 +205,51 @@ void MotorControll_callback(rcl_timer_t *timer, int64_t last_call_time)
     float vR = (linearVelocity + (angularVelocity * 1 / 2)) * 20;
 
     // current wheel rpm is calculated
-    float currentRpmRM1 = M1_wheel.getRPM();
-    float currentRpmRM2 = M2_wheel.getRPM();
+    float currentVelocityRM1 = M1_wheel.getRPM() * wheel_circumference_ / 60;
+    float currentVelocityRM2 = M2_wheel.getRPM() * wheel_circumference_ / 60;
+    float currentVelocityLM3 = M3_wheel.getRPM() * wheel_circumference_ / 60;
+    float currentVelocityLM4 = M4_wheel.getRPM() * wheel_circumference_ / 60;
 
-    float currentRpmLM3 = M3_wheel.getRPM();
-    float currentRpmLM4 = M4_wheel.getRPM();
+    float currentSignalRM1 = getSignal(currentVelocityRM1);
+    float currentSignalRM2 = getSignal(currentVelocityRM2);
+    float currentSignalLM3 = getSignal(currentVelocityLM3);
+    float currentSignalLM4 = getSignal(currentVelocityLM4);
 
-
-    u_int8_t control = MotorOff;
+    float targetSignalR = getSignal(vR);
+    float targetSignalL = getSignal(vL);
     
-    if (vR > 0){
-      control += m1_cw + m2_cw;
+    while (fabs(currentSignalRM1 - targetSignalR) > 1.0 || fabs(currentSignalLM3 - targetSignalL) > 1.0) {
+        // Ajusta a velocidade atual em direção à velocidade desejada
+        currentSignalRM1 += acceleration_factor * (targetSignalR - currentSignalRM1);
+        currentSignalLM3 += acceleration_factor * (targetSignalL - currentSignalLM3);
 
-    } else if (vR < 0){
-      control += m1_ccw + m2_ccw;
+        // Atualiza a direção dos motores
+        u_int8_t control = MotorOff;
 
-    } else if (vR == 0){
-      control &= !(m1_cw + m1_ccw + m2_ccw + m2_cw);
+        if (currentSignalRM1 > 0.0) {
+            control += m1_cw + m2_cw;
+        } else if (currentSignalRM1 < 0.0) {
+            control += m1_ccw + m2_ccw;
+        }
+
+        if (currentSignalLM3 > 0) {
+            control += m3_cw + m4_cw;
+        } else if (currentSignalLM3 < 0) {
+            control += m3_ccw + m4_ccw;
+        }
+
+        writeMotorDir(control);
+        M1_wheel.move(currentSignalRM1);
+        M2_wheel.move(currentSignalRM1);
+        M3_wheel.move(currentSignalLM3);
+        M4_wheel.move(currentSignalLM3);
+
+        // Atualiza as velocidades atuais
+        currentVelocityRM1 = M1_wheel.getRPM() * wheel_circumference_ / 60;
+        currentVelocityLM3 = M3_wheel.getRPM() * wheel_circumference_ / 60;
+        currentSignalRM1 = getSignal(currentVelocityRM1);
+        currentSignalLM3 = getSignal(currentVelocityLM3);
     }
-
-    if (vL > 0){
-      control += m3_cw + m4_cw;
-
-    } else if (vL < 0){
-      control += m3_ccw + m4_ccw;
-
-    } else if (vR == 0){
-      control &= !(m3_cw + m3_ccw + m4_ccw + m4_cw);
-
-    }
-
-    writeMotorDir(control);
-    M1_wheel.move(vR);
-    M2_wheel.move(vR);
-    M3_wheel.move(vL);
-    M4_wheel.move(vL);
 
     // odometry
     //float average_rps_x = ((float)(currentRpmRM1 + currentRpmRM2 + currentRpmLM3 + currentRpmLM4) / 4) / 60.0; // RPM
